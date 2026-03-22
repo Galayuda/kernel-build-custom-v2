@@ -90,18 +90,36 @@ jobs:
           echo "📋 Копирование конфигурации..."
           CONFIG_TYPE="${{ github.event.inputs.config_type || 'custom' }}"
           
+          # Отладка: показать структуру файлов
+          echo ""
+          echo "🔍 Структура репозитория:"
+          ls -la
+          echo ""
+          echo "🔍 Поиск config_core:"
+          find . -name "config_core" -o -name ".config" 2>/dev/null
+          echo ""
+          echo "🔍 GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE" 2>/dev/null | head -20
+          echo ""
+          
           # Переходим в папку с исходниками
           cd linux-build
 
           if [ "$CONFIG_TYPE" = "custom" ]; then
             # Используем нашу .config из репозитория
-            # $GITHUB_WORKSPACE - это корень репозитория
+            # Проверяем несколько возможных путей
             if [ -f "$GITHUB_WORKSPACE/config_core" ]; then
               cp "$GITHUB_WORKSPACE/config_core" .config
-              echo "✅ Использована custom конфигурация из config_core"
+              echo "✅ Использована custom конфигурация из \$GITHUB_WORKSPACE/config_core"
             elif [ -f "$GITHUB_WORKSPACE/.config" ]; then
               cp "$GITHUB_WORKSPACE/.config" .config
               echo "✅ Использована .config из репозитория"
+            elif [ -f "../config_core" ]; then
+              cp "../config_core" .config
+              echo "✅ Использована custom конфигурация из ../config_core"
+            elif [ -f "../.config" ]; then
+              cp "../.config" .config
+              echo "✅ Использована .config из ../.config"
             else
               echo "⚠️ .config не найдена, создаём defconfig"
               make defconfig
