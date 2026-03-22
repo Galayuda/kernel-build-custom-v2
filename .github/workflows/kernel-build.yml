@@ -38,8 +38,7 @@ jobs:
       # ============================================================================
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          path: kernel-source
+        # Checkout в корень рабочей директории (не в подпапку)
       
       # ============================================================================
       # ШАГ 2: Установка зависимостей
@@ -70,18 +69,16 @@ jobs:
         run: |
           echo "📥 Загрузка исходников ядра..."
           KERNEL_VERSION="${{ github.event.inputs.kernel_version || '6.18.9' }}"
-          cd kernel-source
-          
+
           # Скачиваем с kernel.org
           wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz
-          
+
           # Распаковываем
           tar -xf linux-${KERNEL_VERSION}.tar.xz
-          
-          # Переходим в папку
+
+          # Переименовываем для удобства
           mv linux-${KERNEL_VERSION} linux-build
-          cd linux-build
-          
+
           echo "✅ Исходники загружены: linux-${KERNEL_VERSION}"
           ls -lh
       
@@ -92,10 +89,11 @@ jobs:
         run: |
           echo "📋 Копирование конфигурации..."
           CONFIG_TYPE="${{ github.event.inputs.config_type || 'custom' }}"
-          cd kernel-source/linux-build
-          
+          cd linux-build
+
           if [ "$CONFIG_TYPE" = "custom" ]; then
             # Используем нашу .config из репозитория
+            # config_core лежит в корне репозитория
             if [ -f "../config_core" ]; then
               cp ../config_core .config
               echo "✅ Использована custom конфигурация"
@@ -111,7 +109,7 @@ jobs:
             make defconfig
             echo "✅ Создана defconfig"
           fi
-          
+
           # Показываем ключевые опции
           echo ""
           echo "📊 Ключевые опции конфигурации:"
@@ -123,84 +121,84 @@ jobs:
       - name: Prepare kernel build
         run: |
           echo "🔧 Подготовка к сборке..."
-          cd kernel-source/linux-build
-          
+          cd linux-build
+
           # Генерация заголовков
           make prepare
           make scripts
-          
+
           echo "✅ Подготовка завершена"
-      
+
       # ============================================================================
       # ШАГ 6: Сборка ядра
       # ============================================================================
       - name: Build kernel
         run: |
           echo "🚀 Начало сборки ядра..."
-          cd kernel-source/linux-build
-          
+          cd linux-build
+
           # Получаем количество доступных CPU
           CPU_COUNT=$(nproc)
           echo "📊 Доступно CPU: $CPU_COUNT"
-          
+
           # Замер времени
           START_TIME=$(date +%s)
-          
+
           # Сборка bzImage и модулей
           make -j$CPU_COUNT bzImage modules 2>&1 | tail -50
-          
+
           # Время сборки
           END_TIME=$(date +%s)
           ELAPSED=$((END_TIME - START_TIME))
           MINUTES=$((ELAPSED / 60))
           SECONDS=$((ELAPSED % 60))
-          
+
           echo ""
           echo "⏱️ Время сборки: ${MINUTES}м ${SECONDS}с"
           echo "✅ Сборка завершена!"
-      
+
       # ============================================================================
       # ШАГ 7: Проверка результатов
       # ============================================================================
       - name: Check build results
         run: |
           echo "📊 Проверка результатов..."
-          cd kernel-source/linux-build
-          
+          cd linux-build
+
           # Размер ядра
           echo ""
           echo "📦 Размер bzImage:"
           ls -lh arch/x86/boot/bzImage
-          
+
           # Размер модулей
           echo ""
           echo "📦 Размер модулей:"
           du -sh modules_install/ 2>/dev/null || echo "Модули ещё не установлены"
-          
+
           # Версия ядра
           echo ""
           echo "🏷️ Версия ядра:"
           cat include/config/kernel.release
-          
+
           # Статистика конфигурации
           echo ""
           echo "📊 Статистика конфигурации:"
           scripts/config --list-missing 2>/dev/null | head -20 || echo "Все опции доступны"
-      
+
       # ============================================================================
       # ШАГ 8: Установка модулей (опционально)
       # ============================================================================
       - name: Install modules
         run: |
           echo "📦 Установка модулей..."
-          cd kernel-source/linux-build
-          
+          cd linux-build
+
           # Устанавливаем модули во временную папку
           make INSTALL_MOD_PATH=modules_install modules_install
-          
+
           echo "✅ Модули установлены"
           ls -lh modules_install/lib/modules/
-      
+
       # ============================================================================
       # ШАГ 9: Загрузка артефактов
       # ============================================================================
@@ -208,21 +206,21 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bzImage-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: kernel-source/linux-build/arch/x86/boot/bzImage
+          path: linux-build/arch/x86/boot/bzImage
           retention-days: 30
-      
+
       - name: Upload config artifact
         uses: actions/upload-artifact@v4
         with:
           name: config-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: kernel-source/linux-build/.config
+          path: linux-build/.config
           retention-days: 30
-      
+
       - name: Upload modules artifact
         uses: actions/upload-artifact@v4
         with:
           name: modules-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: kernel-source/linux-build/modules_install/lib/modules/
+          path: linux-build/modules_install/lib/modules/
           retention-days: 30
       
       # ============================================================================
