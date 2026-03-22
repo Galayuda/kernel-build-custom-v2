@@ -213,11 +213,25 @@ jobs:
           echo "📦 Установка модулей..."
           cd linux-build
 
-          # Устанавливаем модули во временную папку
+          # Получаем версию ядра из .config
+          KERNEL_RELEASE=$(cat include/config/kernel.release)
+          echo "🏷️ Версия ядра: $KERNEL_RELEASE"
+
+          # Создаём правильную структуру папок
+          mkdir -p modules_install/lib/modules/$KERNEL_RELEASE
+
+          # Устанавливаем модули в правильную папку
           make INSTALL_MOD_PATH=modules_install modules_install
 
           echo "✅ Модули установлены"
-          ls -lh modules_install/lib/modules/
+          echo ""
+          echo "📊 Размер модулей:"
+          du -sh modules_install/lib/modules/$KERNEL_RELEASE
+          
+          # Показываем только модули (без исходников)
+          echo ""
+          echo "📁 Содержимое:"
+          ls -lh modules_install/lib/modules/$KERNEL_RELEASE
 
       # ============================================================================
       # ШАГ 9: Загрузка артефактов
@@ -243,6 +257,7 @@ jobs:
           name: modules-${{ github.event.inputs.kernel_version || '6.18.9' }}
           path: linux-build/modules_install/lib/modules/
           retention-days: 30
+          # Не загружать исходники (только .ko файлы и метаданные)
       
       # ============================================================================
       # ШАГ 10: Финальное сообщение
