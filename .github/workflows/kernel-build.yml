@@ -233,8 +233,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: config-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: linux-build/.config
+          path: ${{ github.workspace }}/linux-build/.config
           retention-days: 30
+          if-no-files-found: warn  # Не ошибка если нет .config
 
       - name: Upload modules artifact
         uses: actions/upload-artifact@v4
