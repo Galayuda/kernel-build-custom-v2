@@ -89,16 +89,18 @@ jobs:
         run: |
           echo "📋 Копирование конфигурации..."
           CONFIG_TYPE="${{ github.event.inputs.config_type || 'custom' }}"
+          
+          # Переходим в папку с исходниками
           cd linux-build
 
           if [ "$CONFIG_TYPE" = "custom" ]; then
             # Используем нашу .config из репозитория
-            # config_core лежит в корне репозитория
-            if [ -f "../config_core" ]; then
-              cp ../config_core .config
-              echo "✅ Использована custom конфигурация"
-            elif [ -f "../.config" ]; then
-              cp ../.config .config
+            # $GITHUB_WORKSPACE - это корень репозитория
+            if [ -f "$GITHUB_WORKSPACE/config_core" ]; then
+              cp "$GITHUB_WORKSPACE/config_core" .config
+              echo "✅ Использована custom конфигурация из config_core"
+            elif [ -f "$GITHUB_WORKSPACE/.config" ]; then
+              cp "$GITHUB_WORKSPACE/.config" .config
               echo "✅ Использована .config из репозитория"
             else
               echo "⚠️ .config не найдена, создаём defconfig"
