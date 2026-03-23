@@ -227,7 +227,7 @@ jobs:
         run: |
           echo "🔍 Проверка артефактов перед загрузкой..."
           ls -lh arch/x86/boot/bzImage
-          ls -lh .config.backup
+          ls -lh "$GITHUB_WORKSPACE/.config.backup"
           ls -lh modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/
           echo "✅ Все артефакты найдены"
         working-directory: linux-build
