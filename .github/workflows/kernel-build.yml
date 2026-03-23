@@ -83,13 +83,14 @@ jobs:
           ls -lh
       
       # ============================================================================
-      # ШАГ 4: Копирование конфигурации
+      # ШАГ 4: Копирование конфигурации + сохранение для артефакта
       # ============================================================================
       - name: Copy kernel config
+        id: copy_config
         run: |
           echo "📋 Копирование конфигурации..."
           CONFIG_TYPE="${{ github.event.inputs.config_type || 'custom' }}"
-          
+
           # Отладка: показать структуру файлов
           echo ""
           echo "🔍 Структура репозитория:"
@@ -101,7 +102,7 @@ jobs:
           echo "🔍 GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
           ls -la "$GITHUB_WORKSPACE" 2>/dev/null | head -20
           echo ""
-          
+
           # Переходим в папку с исходниками
           cd linux-build
 
@@ -129,6 +130,10 @@ jobs:
             make defconfig
             echo "✅ Создана defconfig"
           fi
+
+          # 🔥 КРИТИЧНО: Сохраняем копию .config СРАЗУ (до сборки)
+          cp .config "$GITHUB_WORKSPACE/.config.backup"
+          echo "✅ .config сохранена в \$GITHUB_WORKSPACE/.config.backup"
 
           # Показываем ключевые опции
           echo ""
@@ -240,6 +245,15 @@ jobs:
       # ============================================================================
       # ШАГ 9: Загрузка артефактов
       # ============================================================================
+      - name: Verify artifacts exist
+        run: |
+          echo "🔍 Проверка артефактов перед загрузкой..."
+          ls -lh arch/x86/boot/bzImage
+          ls -lh .config.backup
+          ls -lh modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/
+          echo "✅ Все артефакты найдены"
+        working-directory: linux-build
+
       - name: Upload kernel artifact
         uses: actions/upload-artifact@v4
         with:
@@ -251,17 +265,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: config-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: linux-build/.config
+          # 🔥 Используем .config.backup из корня workspace (сохранена ДО сборки)
+          path: .config.backup
           retention-days: 30
-          if-no-files-found: warn  # Не ошибка если нет .config
+          if-no-files-found: error  # Теперь ошибка если нет .config
 
       - name: Upload modules artifact
         uses: actions/upload-artifact@v4
         with:
           name: modules-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/
+          # 🔥 Используем glob pattern с exclusions для build/
+          path: |
+            linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/
+            !linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/build/**
           retention-days: 30
-          # Загружаем ТОЛЬКО папку с версией (6.18.9/) без обёртки modules_install/
       
       # ============================================================================
       # ШАГ 10: Финальное сообщение
