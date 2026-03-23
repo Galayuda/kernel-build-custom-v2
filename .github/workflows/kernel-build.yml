@@ -110,8 +110,8 @@ jobs:
           fi
 
           # 🔥 КРИТИЧНО: Сохраняем копию .config СРАЗУ (до сборки)
-          cp .config "$GITHUB_WORKSPACE/.config.backup"
-          echo "✅ .config сохранена в \$GITHUB_WORKSPACE/.config.backup"
+          cp .config "$GITHUB_WORKSPACE/config.backup"
+          echo "✅ .config сохранена в \$GITHUB_WORKSPACE/config.backup"
 
           # Показываем ключевые опции
           echo ""
@@ -227,7 +227,7 @@ jobs:
         run: |
           echo "🔍 Проверка артефактов перед загрузкой..."
           ls -lh arch/x86/boot/bzImage
-          ls -lh "$GITHUB_WORKSPACE/.config.backup"
+          ls -lh "$GITHUB_WORKSPACE/config.backup"
           ls -lh modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/
           echo "✅ Все артефакты найдены"
         working-directory: linux-build
@@ -243,11 +243,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: config-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          # 🔥 Используем .config.backup из корня workspace (сохранена ДО сборки)
-          path: ${{ github.workspace }}/.config.backup
+          # 🔥 Используем config.backup из корня workspace (сохранена ДО сборки)
+          path: ${{ github.workspace }}/config.backup
           retention-days: 30
           if-no-files-found: error
-          include-hidden-files: true  # КРИТИЧНО: файл начинается с точки
+          include-hidden-files: true  # На всякий случай
 
       - name: Upload modules artifact
         uses: actions/upload-artifact@v4
