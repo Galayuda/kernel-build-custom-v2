@@ -244,7 +244,7 @@ jobs:
         with:
           name: config-${{ github.event.inputs.kernel_version || '6.18.9' }}
           # 🔥 Используем .config.backup из корня workspace (сохранена ДО сборки)
-          path: .config.backup
+          path: ${{ github.workspace }}/.config.backup
           retention-days: 30
           if-no-files-found: error  # Теперь ошибка если нет .config
 
