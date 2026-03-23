@@ -206,7 +206,7 @@ jobs:
           scripts/config --list-missing 2>/dev/null | head -20 || echo "Все опции доступны"
 
       # ============================================================================
-      # ШАГ 8: Установка модулей (опционально)
+      # ШАГ 8: Установка модулей + очистка build/
       # ============================================================================
       - name: Install modules
         run: |
@@ -221,9 +221,15 @@ jobs:
           mkdir -p modules_install/$KERNEL_RELEASE
           make INSTALL_MOD_PATH=modules_install/$KERNEL_RELEASE modules_install
 
+          # ⚠️ КРИТИЧНО: Удаляем папку build/ из модулей (2.6GB лишнего кода)
+          echo ""
+          echo "🗑️ Удаление build/ директории из модулей..."
+          rm -rf modules_install/$KERNEL_RELEASE/build
+          echo "✅ build/ удалён"
+
           echo "✅ Модули установлены"
           echo ""
-          echo "📊 Размер модулей:"
+          echo "📊 Размер модулей (после очистки):"
           du -sh modules_install/$KERNEL_RELEASE
 
           # Показываем содержимое
@@ -245,7 +251,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: config-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: ${{ github.workspace }}/linux-build/.config
+          path: linux-build/.config
           retention-days: 30
           if-no-files-found: warn  # Не ошибка если нет .config
 
@@ -253,9 +259,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: modules-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: linux-build/modules_install/
+          path: linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/
           retention-days: 30
-          # Загружаем папку с версией напрямую (6.18.9/)
+          # Загружаем ТОЛЬКО папку с версией (6.18.9/) без обёртки modules_install/
       
       # ============================================================================
       # ШАГ 10: Финальное сообщение
