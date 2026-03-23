@@ -217,21 +217,19 @@ jobs:
           KERNEL_RELEASE=$(cat include/config/kernel.release)
           echo "🏷️ Версия ядра: $KERNEL_RELEASE"
 
-          # Создаём правильную структуру папок
-          mkdir -p modules_install/lib/modules/$KERNEL_RELEASE
-
-          # Устанавливаем модули в правильную папку
-          make INSTALL_MOD_PATH=modules_install modules_install
+          # Устанавливаем модули напрямую в папку версии (без lib/modules обёртки)
+          mkdir -p modules_install/$KERNEL_RELEASE
+          make INSTALL_MOD_PATH=modules_install/$KERNEL_RELEASE modules_install
 
           echo "✅ Модули установлены"
           echo ""
           echo "📊 Размер модулей:"
-          du -sh modules_install/lib/modules/$KERNEL_RELEASE
-          
-          # Показываем только модули (без исходников)
+          du -sh modules_install/$KERNEL_RELEASE
+
+          # Показываем содержимое
           echo ""
           echo "📁 Содержимое:"
-          ls -lh modules_install/lib/modules/$KERNEL_RELEASE
+          ls -lh modules_install/$KERNEL_RELEASE
 
       # ============================================================================
       # ШАГ 9: Загрузка артефактов
@@ -255,9 +253,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: modules-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          path: linux-build/modules_install/lib/modules/
+          path: linux-build/modules_install/
           retention-days: 30
-          # Не загружать исходники (только .ko файлы и метаданные)
+          # Загружаем папку с версией напрямую (6.18.9/)
       
       # ============================================================================
       # ШАГ 10: Финальное сообщение
