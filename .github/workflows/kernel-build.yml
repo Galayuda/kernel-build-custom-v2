@@ -83,12 +83,12 @@ jobs:
           cd linux-build
 
           if [ "$CONFIG_TYPE" = "custom" ]; then
-            # Используем нашу .config из репозитория
-            if [ -f "$GITHUB_WORKSPACE/.config" ]; then
-              cp "$GITHUB_WORKSPACE/.config" .config
-              echo "✅ Использована .config из репозитория"
+            # Используем нашу config.backup из репозитория (без точки чтобы git видел)
+            if [ -f "$GITHUB_WORKSPACE/config.backup" ]; then
+              cp "$GITHUB_WORKSPACE/config.backup" .config
+              echo "✅ Использована config.backup из репозитория"
             else
-              echo "⚠️ .config не найдена, создаём defconfig"
+              echo "⚠️ config.backup не найдена, создаём defconfig"
               make defconfig
             fi
           else
