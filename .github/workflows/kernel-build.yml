@@ -1,8 +1,8 @@
 # ============================================================================
-# GitHub Actions Workflow для сборки ядра Linux 6.18.9-custom_v2
+# GitHub Actions Workflow для сборки ядра Linux 6.18.9
 # ============================================================================
 
-name: Build Linux Kernel 6.18.9-custom_v2
+name: Build Linux Kernel 6.18.9
 
 # Триггеры запуска
 on:
@@ -13,7 +13,7 @@ on:
         description: 'Версия ядра'
         required: false
         default: '6.18.9'
-      
+
       config_type:
         description: 'Тип конфигурации (defconfig или custom)'
         required: false
@@ -23,23 +23,18 @@ on:
           - custom
           - defconfig
 
-  # Запуск по расписанию (опционально, можно отключить)
-  # schedule:
-  #   - cron: '0 0 * * 0'  # Каждое воскресенье в 00:00
-
 # Основная задача
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       # ============================================================================
       # ШАГ 1: Checkout репозитория
       # ============================================================================
       - name: Checkout repository
         uses: actions/checkout@v4
-        # Checkout в корень рабочей директории (не в подпапку)
-      
+
       # ============================================================================
       # ШАГ 2: Установка зависимостей
       # ============================================================================
@@ -61,7 +56,7 @@ jobs:
             git \
             kmod
           echo "✅ Зависимости установлены"
-      
+
       # ============================================================================
       # ШАГ 3: Загрузка исходников ядра
       # ============================================================================
@@ -69,19 +64,12 @@ jobs:
         run: |
           echo "📥 Загрузка исходников ядра..."
           KERNEL_VERSION="${{ github.event.inputs.kernel_version || '6.18.9' }}"
-
-          # Скачиваем с kernel.org
           wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz
-
-          # Распаковываем
           tar -xf linux-${KERNEL_VERSION}.tar.xz
-
-          # Переименовываем для удобства
           mv linux-${KERNEL_VERSION} linux-build
-
           echo "✅ Исходники загружены: linux-${KERNEL_VERSION}"
           ls -lh
-      
+
       # ============================================================================
       # ШАГ 4: Копирование конфигурации + сохранение для артефакта
       # ============================================================================
@@ -117,7 +105,7 @@ jobs:
           echo ""
           echo "📊 Ключевые опции конфигурации:"
           grep -E "^CONFIG_(IWLWIFI|SND_HDA|DRM_I915|PREEMPT|LOCALVERSION)=" .config | head -10
-      
+
       # ============================================================================
       # ШАГ 5: Подготовка к сборке
       # ============================================================================
@@ -204,7 +192,7 @@ jobs:
           mkdir -p modules_install/$KERNEL_RELEASE
           make INSTALL_MOD_PATH=modules_install/$KERNEL_RELEASE modules_install
 
-          # ⚠️ КРИТИЧНО: Удаляем папку build/ из модулей (2.6GB лишнего кода)
+          # ⚠️ КРИТИЧНО: Удаляем build/ из модулей (это симлинк на исходники!)
           echo ""
           echo "🗑️ Удаление build/ директории из модулей..."
           rm -rf modules_install/$KERNEL_RELEASE/build
@@ -253,12 +241,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: modules-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          # 🔥 Используем glob pattern с exclusions для build/
-          path: |
-            linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/
-            !linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/build/**
+          # 🔥 Загружаем ТОЛЬКО kernel/ (исключаем build/ который является симлинком)
+          path: linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/lib/modules/${{ github.event.inputs.kernel_version || '6.18.9' }}/kernel/
           retention-days: 30
-      
+          if-no-files-found: warn
+
       # ============================================================================
       # ШАГ 10: Финальное сообщение
       # ============================================================================
