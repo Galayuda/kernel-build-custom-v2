@@ -241,10 +241,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: modules-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          # 🔥 Загружаем ТОЛЬКО kernel/ (исключаем build/ который является симлинком)
-          path: linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/lib/modules/${{ github.event.inputs.kernel_version || '6.18.9' }}/kernel/
+          # 🔥 Загружаем ВСЮ папку модулей (с modules.builtin, modules.order, modules.dep)
+          # Исключаем только build/ (симлинк на исходники 2.6GB)
+          path: |
+            linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/lib/modules/${{ github.event.inputs.kernel_version || '6.18.9' }}/
+            !linux-build/modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/lib/modules/${{ github.event.inputs.kernel_version || '6.18.9' }}/build/**
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: error
 
       # ============================================================================
       # ШАГ 10: Финальное сообщение
