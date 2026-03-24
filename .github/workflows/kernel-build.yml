@@ -242,7 +242,7 @@ jobs:
         id: kernel_release
         run: |
           # 🔥 Читаем реальную версию ядра из kernel.release (с учётом CONFIG_LOCALVERSION)
-          KERNEL_RELEASE=$(cat linux-build/include/config/kernel.release)
+          KERNEL_RELEASE=$(cat include/config/kernel.release)
           echo "kernel_release=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
           echo "📊 Kernel release: $KERNEL_RELEASE"
         working-directory: linux-build
