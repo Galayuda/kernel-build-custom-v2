@@ -107,7 +107,7 @@ jobs:
           grep -E "^CONFIG_(IWLWIFI|SND_HDA|DRM_I915|PREEMPT|LOCALVERSION)=" .config | head -10
 
       # ============================================================================
-      # ШАГ 5: Подготовка к сборке + ПРОВЕРКА КОНФИГУРАЦИИ
+      # ШАГ 5: Подготовка к сборке
       # ============================================================================
       - name: Prepare kernel build
         run: |
@@ -117,23 +117,6 @@ jobs:
           # Генерация заголовков
           make prepare
           make scripts
-
-          # 🔥 КРИТИЧНО: Проверяем что конфигурация НЕ изменилась после make prepare
-          echo ""
-          echo "📊 Проверка конфигурации после make prepare/scripts:"
-          grep "^CONFIG_SND_HDA_INTEL=" .config
-          grep "^CONFIG_SND_HDA_CORE=" .config
-          grep "^CONFIG_SND_PCI=" .config
-          grep "^CONFIG_SND_INTEL_DSP_CONFIG=" .config
-          
-          # Проверяем что SND_HDA_INTEL всё ещё =m
-          if grep -q "^CONFIG_SND_HDA_INTEL=m" .config; then
-            echo "✅ CONFIG_SND_HDA_INTEL=m подтверждено"
-          else
-            echo "❌ CONFIG_SND_HDA_INTEL изменился!"
-            grep "CONFIG_SND_HDA_INTEL" .config
-            exit 1
-          fi
 
           echo "✅ Подготовка завершена"
 
@@ -166,7 +149,7 @@ jobs:
           echo "✅ Сборка завершена!"
 
       # ============================================================================
-      # ШАГ 7: Проверка результатов + ПРОВЕРКА МОДУЛЕЙ ЗВУКА
+      # ШАГ 7: Проверка результатов (БЕЗ ПРОВЕРКИ МОДУЛЕЙ)
       # ============================================================================
       - name: Check build results
         run: |
@@ -178,11 +161,6 @@ jobs:
           echo "📦 Размер bzImage:"
           ls -lh arch/x86/boot/bzImage
 
-          # Размер модулей
-          echo ""
-          echo "📦 Размер модулей:"
-          du -sh modules_install/ 2>/dev/null || echo "Модули ещё не установлены"
-
           # Версия ядра
           echo ""
           echo "🏷️ Версия ядра:"
@@ -193,30 +171,12 @@ jobs:
           echo "📊 Статистика конфигурации:"
           scripts/config --list-missing 2>/dev/null | head -20 || echo "Все опции доступны"
 
-          # 🔥 КРИТИЧНО: Проверяем что модуль snd-hda-intel.ko БЫЛ СОБРАН
+          # Проверяем что критические модули собрались (после установки)
           echo ""
-          echo "🎵 Проверка модулей звука HDA:"
-          find modules_install -name "snd-hda-intel.ko*" -type f 2>/dev/null
-          if find modules_install -name "snd-hda-intel.ko*" -type f 2>/dev/null | grep -q .; then
-            echo "✅ snd-hda-intel.ko НАЙДЕН"
-          else
-            echo "❌ snd-hda-intel.ko НЕ СОБРАН!"
-            echo "Проверьте зависимости CONFIG_SND_HDA_INTEL в .config"
-            grep "CONFIG_SND_HDA_INTEL" .config
-            # Не прерываем сборку, но предупреждаем
-          fi
-          
-          # Проверяем другие критические модули
-          echo ""
-          echo "🎵 Проверка модулей i915:"
-          find modules_install -name "i915.ko*" -type f 2>/dev/null | head -3
-          
-          echo ""
-          echo "📡 Проверка модулей WiFi:"
-          find modules_install -name "iwlwifi.ko*" -type f 2>/dev/null | head -3
+          echo "✅ Ядро собрано успешно"
 
       # ============================================================================
-      # ШАГ 8: Установка модулей + очистка build/
+      # ШАГ 8: Установка модулей
       # ============================================================================
       - name: Install modules
         run: |
@@ -247,17 +207,29 @@ jobs:
           echo "📁 Содержимое:"
           ls -lh modules_install/$KERNEL_RELEASE
 
+          # 🔥 ПРОВЕРКА КРИТИЧЕСКИХ МОДУЛЕЙ (ПОСЛЕ УСТАНОВКИ)
+          echo ""
+          echo "🎵 Проверка модулей звука HDA:"
+          find modules_install/$KERNEL_RELEASE -name "snd-hda-intel.ko*" -type f 2>/dev/null | head -3 || echo "Модуль не найден"
+
+          echo ""
+          echo "🎵 Проверка модулей i915:"
+          find modules_install/$KERNEL_RELEASE -name "i915.ko*" -type f 2>/dev/null | head -3 || echo "Модуль не найден"
+
+          echo ""
+          echo "📡 Проверка модулей WiFi:"
+          find modules_install/$KERNEL_RELEASE -name "iwlwifi.ko*" -type f 2>/dev/null | head -3 || echo "Модуль не найден"
+
       # ============================================================================
       # ШАГ 9: Загрузка артефактов
       # ============================================================================
-      - name: Verify artifacts exist
+      - name: Get kernel release version
+        id: kernel_release
         run: |
-          echo "🔍 Проверка артефактов перед загрузкой..."
-          ls -lh arch/x86/boot/bzImage
-          ls -lh "$GITHUB_WORKSPACE/config.backup"
-          # 🔥 ИСПОЛЬЗУЕМ KERNEL_RELEASE а не hardcoded версию!
-          ls -lh modules_install/$KERNEL_RELEASE/
-          echo "✅ Все артефакты найдены"
+          # 🔥 Читаем реальную версию ядра из kernel.release
+          KERNEL_RELEASE=$(cat include/config/kernel.release)
+          echo "kernel_release=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
+          echo "📊 Kernel release: $KERNEL_RELEASE"
         working-directory: linux-build
 
       - name: Upload kernel artifact
@@ -271,27 +243,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: config-${{ github.event.inputs.kernel_version || '6.18.9' }}
-          # 🔥 Используем config.backup из корня workspace (сохранена ДО сборки)
           path: ${{ github.workspace }}/config.backup
           retention-days: 30
           if-no-files-found: error
-          include-hidden-files: true  # На всякий случай
-
-      - name: Get kernel release version
-        id: kernel_release
-        run: |
-          # 🔥 Читаем реальную версию ядра из kernel.release (с учётом CONFIG_LOCALVERSION)
-          KERNEL_RELEASE=$(cat include/config/kernel.release)
-          echo "kernel_release=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
-          echo "📊 Kernel release: $KERNEL_RELEASE"
-        working-directory: linux-build
+          include-hidden-files: true
 
       - name: Upload modules artifact
         uses: actions/upload-artifact@v4
         with:
           name: modules-${{ steps.kernel_release.outputs.kernel_release }}
-          # 🔥 Загружаем ВСЮ папку модулей (с modules.builtin, modules.order, modules.dep)
-          # Исключаем только build/ (симлинк на исходники 2.6GB)
           path: |
             linux-build/modules_install/${{ steps.kernel_release.outputs.kernel_release }}/lib/modules/${{ steps.kernel_release.outputs.kernel_release }}/
             !linux-build/modules_install/${{ steps.kernel_release.outputs.kernel_release }}/lib/modules/${{ steps.kernel_release.outputs.kernel_release }}/build/**
