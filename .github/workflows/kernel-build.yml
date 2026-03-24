@@ -216,7 +216,8 @@ jobs:
           echo "🔍 Проверка артефактов перед загрузкой..."
           ls -lh arch/x86/boot/bzImage
           ls -lh "$GITHUB_WORKSPACE/config.backup"
-          ls -lh modules_install/${{ github.event.inputs.kernel_version || '6.18.9' }}/
+          # 🔥 ИСПОЛЬЗУЕМ KERNEL_RELEASE а не hardcoded версию!
+          ls -lh modules_install/$KERNEL_RELEASE/
           echo "✅ Все артефакты найдены"
         working-directory: linux-build
 
